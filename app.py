@@ -8,7 +8,54 @@ import re
 import html
 
 app = FastAPI(title="Rellenador de prácticas de laboratorio ACE3 - IPN")
+DONATION_ENABLED = os.getenv("DONATION_ENABLED", "true").lower() == "true"
+DONATION_BANK = os.getenv("DONATION_BANK", "Banorte")
+DONATION_HOLDER = os.getenv("DONATION_HOLDER", "")
+DONATION_CLABE = os.getenv("DONATION_CLABE", "")
+DONATION_ACCOUNT = os.getenv("DONATION_ACCOUNT", "")
+DONATION_CONCEPT = os.getenv("DONATION_CONCEPT", "Apoyo ACE3 Filler")
 
+def bloque_apoyo_voluntario() -> str:
+    if not DONATION_ENABLED or not DONATION_CLABE:
+        return ""
+
+    bank = html.escape(DONATION_BANK)
+    holder = html.escape(DONATION_HOLDER)
+    clabe = html.escape(DONATION_CLABE)
+    account = html.escape(DONATION_ACCOUNT)
+    concept = html.escape(DONATION_CONCEPT)
+    clabe_attr = html.escape(DONATION_CLABE, quote=True)
+
+    return f"""
+    <section class="donation-box">
+        <div class="donation-icon">☕</div>
+        <h2>¿Te sirvió esta herramienta?</h2>
+        <p>
+            ACE3 Filler es gratuito y fue creado para ayudarte a ahorrar tiempo
+            al llenar tus prácticas de laboratorio.
+        </p>
+        <p>
+            Si quieres apoyar su mantenimiento y futuras mejoras, puedes hacer
+            una aportación voluntaria por cualquier monto.
+        </p>
+
+        <div class="bank-data">
+            <p><strong>Banco:</strong> {bank}</p>
+            <p><strong>Titular:</strong> {holder}</p>
+            <p><strong>CLABE:</strong> <span id="clabe-text">{clabe}</span></p>
+            <p><strong>Cuenta:</strong> {account}</p>
+            <p><strong>Concepto sugerido:</strong> {concept}</p>
+        </div>
+
+        <button type="button" class="copy-btn" data-clabe="{clabe_attr}" onclick="copiarClabe(this)">
+            Copiar CLABE
+        </button>
+
+        <p class="donation-note">
+            El uso de esta herramienta seguirá siendo gratuito. La aportación es completamente voluntaria.
+        </p>
+    </section>
+    """
 
 # =========================
 # Lógica de relleno DOCX
@@ -191,88 +238,146 @@ def rellenar_docx(docx_entrada: str, datos: dict, docx_salida: str):
 
 def pagina_base(contenido: str) -> str:
     return f"""
-    <!doctype html>
+    <!DOCTYPE html>
     <html lang="es">
     <head>
-        <meta charset="utf-8">
+        <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Rellenador de prácticas de laboratorio ACE3 - IPN</title>
+
         <style>
-            body {{
-                font-family: Arial, sans-serif;
-                background: #f4f6fb;
-                margin: 0;
-                padding: 24px;
-            }}
-            .contenedor {{
-                max-width: 780px;
-                margin: 0 auto;
-                background: white;
-                padding: 28px;
-                border-radius: 16px;
-                box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-            }}
-            h1 {{
-                margin-top: 0;
-                color: #17324d;
-            }}
-            h2 {{
-                color: #244b73;
-            }}
-            .grid {{
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 16px;
-            }}
-            .full {{
-                grid-column: 1 / -1;
-            }}
-            label {{
-                display: block;
-                margin-bottom: 6px;
-                font-weight: bold;
-            }}
-            input {{
-                width: 100%;
-                padding: 12px;
-                border: 1px solid #cfd8e3;
-                border-radius: 10px;
+            * {{
                 box-sizing: border-box;
             }}
+
+            body {{
+                margin: 0;
+                font-family: Arial, sans-serif;
+                background: #f4f6f8;
+                color: #222;
+            }}
+
+            .container {{
+                width: 100%;
+                max-width: 820px;
+                margin: 0 auto;
+                padding: 32px 18px;
+            }}
+
+            .main-card {{
+                background: #ffffff;
+                border-radius: 18px;
+                padding: 28px;
+                box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+            }}
+
+            h1 {{
+                margin-top: 0;
+                color: #111827;
+            }}
+
+            h2 {{
+                color: #111827;
+            }}
+
+            input,
             button {{
-                background: #0d6efd;
-                color: white;
-                border: 0;
-                padding: 12px 18px;
+                width: 100%;
+                padding: 12px;
+                margin-top: 8px;
+                margin-bottom: 16px;
                 border-radius: 10px;
+                border: 1px solid #d1d5db;
+                font-size: 15px;
+            }}
+
+            button {{
+                background: #111827;
+                color: white;
+                border: none;
                 cursor: pointer;
-                font-size: 16px;
+                font-weight: bold;
             }}
-            .secundario {{
-                background: #6c757d;
+
+            button:hover {{
+                opacity: 0.92;
             }}
-            .resumen {{
-                background: #f8fafc;
-                border: 1px solid #dbe4ee;
-                border-radius: 12px;
-                padding: 16px;
-                margin: 16px 0;
+
+            .donation-box {{
+                margin-top: 26px;
+                padding: 26px;
+                border-radius: 18px;
+                background: #fff7ed;
+                border: 1px solid #fed7aa;
+                text-align: center;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
             }}
-            .nota {{
-                color: #5d6b79;
-                font-size: 14px;
+
+            .donation-icon {{
+                font-size: 34px;
+                margin-bottom: 8px;
             }}
-            @media (max-width: 640px) {{
-                .grid {{
-                    grid-template-columns: 1fr;
-                }}
+
+            .donation-box h2 {{
+                margin: 0 0 12px;
+                color: #9a3412;
+            }}
+
+            .donation-box p {{
+                color: #444;
+                line-height: 1.5;
+            }}
+
+            .bank-data {{
+                max-width: 460px;
+                margin: 20px auto;
+                padding: 18px;
+                background: #ffffff;
+                border-radius: 14px;
+                text-align: left;
+                border: 1px solid #ffedd5;
+            }}
+
+            .bank-data p {{
+                margin: 8px 0;
+            }}
+
+            .copy-btn {{
+                max-width: 260px;
+                background: #ea580c;
+            }}
+
+            .donation-note {{
+                font-size: 13px;
+                color: #6b7280;
+                margin-bottom: 0;
             }}
         </style>
     </head>
+
     <body>
-        <div class="contenedor">
-            {contenido}
-        </div>
+        <main class="container">
+            <section class="main-card">
+                {contenido}
+            </section>
+
+            {bloque_apoyo_voluntario()}
+        </main>
+
+        <script>
+            function copiarClabe(button) {{
+                const clabe = button.getAttribute("data-clabe");
+
+                navigator.clipboard.writeText(clabe).then(function() {{
+                    const textoOriginal = button.innerText;
+                    button.innerText = "CLABE copiada ✅";
+
+                    setTimeout(function() {{
+                        button.innerText = textoOriginal;
+                    }}, 2000);
+                }});
+            }}
+        </script>
     </body>
     </html>
     """
